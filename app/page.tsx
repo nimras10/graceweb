@@ -1,176 +1,308 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import { useWorkspaceStore } from '../store/useWorkspaceStore';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import FileUpload from '../components/FileUpload';
-import SeriesList from '../components/SeriesList';
-import PlotCanvas from '../components/PlotCanvas';
-import StatsPanel from '../components/StatsPanel';
-import AnnotationTools from '../components/AnnotationTools';
-import AxisSettingsDialog from '../components/AxisSettingsDialog';
-import ExportMenu from '../components/ExportMenu';
 import { Button } from '../components/ui/button';
-import { Activity, Files, BarChart3, Tag, Sun, Moon } from 'lucide-react';
+import { Card, CardContent } from '../components/ui/card';
+import { Activity, Sun, Moon, ArrowRight, ShieldCheck, Zap, BarChart2, CheckCircle, Sliders, Calculator, Sparkles, Tag } from 'lucide-react';
 
-export default function Home() {
-  const { datasets, theme, toggleTheme } = useWorkspaceStore();
-  
-  // Tracking current zoom viewport for statistics computation
-  const [viewport, setViewport] = useState<{ xMin: number | null; xMax: number | null }>({
-    xMin: null,
-    xMax: null,
-  });
+// Dynamic import of Plotly to avoid SSR failures on build
+const Plot = dynamic(
+  async () => {
+    const Plotly = (await import('plotly.js-dist-min')).default;
+    const createPlotlyComponent = (await import('react-plotly.js/factory')).default;
+    return createPlotlyComponent(Plotly);
+  },
+  { ssr: false }
+) as any;
 
-  // Keep HTML class list in sync with theme state
+export default function LandingPage() {
+  const { theme, toggleTheme } = useWorkspaceStore();
+
+  // Sync document dark class with Zustand theme state
   useEffect(() => {
     if (typeof window !== 'undefined') {
       document.documentElement.classList.toggle('dark', theme === 'dark');
     }
   }, [theme]);
 
-  const handleViewportChange = (range: { xMin: number | null; xMax: number | null }) => {
-    setViewport(range);
-  };
+  // Generate mock RMSD dataset coordinates for the live preview widget
+  const mockData = useMemo(() => {
+    const time: number[] = [];
+    const rmsdProtein: number[] = [];
+    const rmsdLigand: number[] = [];
+
+    for (let i = 0; i <= 200; i++) {
+      const t = i * 0.5; // 0 to 100 ns
+      time.push(t);
+
+      // Protein RMSD asymptotic curve with fluctuations
+      const baseProtein = 0.18 * (1 - Math.exp(-t / 20));
+      const noiseProtein = 0.015 * Math.sin(t * 1.5) + 0.008 * Math.cos(t * 4.2) + (Math.random() - 0.5) * 0.01;
+      rmsdProtein.push(Math.max(0, parseFloat((baseProtein + noiseProtein).toFixed(4))));
+
+      // Ligand RMSD curve (equilibrating faster, slightly different level)
+      const baseLigand = 0.12 * (1 - Math.exp(-t / 8));
+      const noiseLigand = 0.01 * Math.sin(t * 2.5) + 0.005 * Math.cos(t * 5.5) + (Math.random() - 0.5) * 0.008;
+      rmsdLigand.push(Math.max(0, parseFloat((baseLigand + noiseLigand).toFixed(4))));
+    }
+
+    return { time, rmsdProtein, rmsdLigand };
+  }, []);
+
+  // Configure preview chart layout dynamically based on active theme
+  const previewLayout = useMemo(() => {
+    const isDark = theme === 'dark';
+    return {
+      title: {
+        text: 'Live Interaction Preview: Receptor-Ligand RMSD',
+        font: { color: isDark ? '#f4f4f5' : '#09090b', family: 'sans-serif', size: 14 },
+      },
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      plot_bgcolor: isDark ? 'rgba(20,19,25,0.4)' : 'rgba(244,244,245,0.4)',
+      xaxis: {
+        title: { text: 'Time (ns)', font: { color: isDark ? '#8f8c9f' : '#71717a', size: 11 } },
+        gridcolor: isDark ? '#22202b' : '#e4e4e7',
+        zerolinecolor: isDark ? '#2c2938' : '#d4d4d8',
+        tickfont: { color: isDark ? '#8f8c9f' : '#71717a', size: 10 },
+      },
+      yaxis: {
+        title: { text: 'RMSD (nm)', font: { color: isDark ? '#8f8c9f' : '#71717a', size: 11 } },
+        gridcolor: isDark ? '#22202b' : '#e4e4e7',
+        zerolinecolor: isDark ? '#2c2938' : '#d4d4d8',
+        tickfont: { color: isDark ? '#8f8c9f' : '#71717a', size: 10 },
+      },
+      legend: {
+        font: { color: isDark ? '#f4f4f5' : '#09090b', size: 10 },
+        bgcolor: isDark ? 'rgba(19,18,24,0.9)' : 'rgba(255,255,255,0.9)',
+        bordercolor: isDark ? '#22202b' : '#e4e4e7',
+        borderwidth: 1,
+      },
+      hovermode: 'closest',
+      margin: { l: 50, r: 20, t: 40, b: 45 },
+      autosize: true,
+    };
+  }, [theme]);
+
+  const previewTraces = useMemo(() => {
+    return [
+      {
+        name: 'Protein Backbone',
+        x: mockData.time,
+        y: mockData.rmsdProtein,
+        type: 'scatter',
+        mode: 'lines',
+        line: { color: '#a78bfa', width: 2 },
+        hovertemplate: 'Time: %{x:.1f} ns<br>Backbone RMSD: %{y:.3f} nm<extra></extra>',
+      },
+      {
+        name: 'Pocket Ligand',
+        x: mockData.time,
+        y: mockData.rmsdLigand,
+        type: 'scatter',
+        mode: 'lines',
+        line: { color: '#3b82f6', width: 2 },
+        hovertemplate: 'Time: %{x:.1f} ns<br>Ligand RMSD: %{y:.3f} nm<extra></extra>',
+      },
+    ];
+  }, [mockData]);
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground font-sans transition-colors duration-200">
-      {/* Left Sidebar containing Files, Stats, and Annotations */}
-      <aside className="w-80 border-r border-border bg-sidebar flex flex-col h-full overflow-hidden select-none transition-colors duration-200">
-        {/* Logo and branding */}
-        <div className="p-4 border-b border-border flex items-center justify-between bg-zinc-950/5 dark:bg-zinc-950/20">
-          <div className="flex items-center gap-2">
-            <Activity className="w-5 h-5 text-primary animate-pulse" />
-            <span className="font-extrabold text-base tracking-tight bg-gradient-to-r from-violet-600 to-indigo-600 dark:from-violet-400 dark:via-purple-400 dark:to-pink-400 bg-clip-text text-transparent">
-              GraceWeb
-            </span>
-          </div>
-          <span className="text-[9px] bg-muted dark:bg-zinc-850 text-muted-foreground px-2 py-0.5 rounded font-mono border border-border">
-            v1.0.0
+    <div className="min-h-screen bg-background text-foreground font-sans transition-colors duration-200 flex flex-col select-none">
+      {/* 1. Header Toolbar */}
+      <header className="h-16 border-b border-border bg-card/60 backdrop-blur px-6 md:px-12 flex items-center justify-between sticky top-0 z-50 transition-colors duration-200">
+        <div className="flex items-center gap-2">
+          <Activity className="w-5 h-5 text-primary animate-pulse" />
+          <span className="font-extrabold text-lg tracking-tight bg-gradient-to-r from-violet-600 to-indigo-600 dark:from-violet-400 dark:via-purple-400 dark:to-pink-400 bg-clip-text text-transparent">
+            GraceWeb
           </span>
         </div>
-
-        {/* Navigation Tabs in Sidebar */}
-        <Tabs defaultValue="curves" className="flex-1 flex flex-col overflow-hidden">
-          <div className="px-3 pt-3 border-b border-border bg-zinc-950/5 dark:bg-zinc-950/10">
-            <TabsList className="grid w-full grid-cols-3 bg-muted dark:bg-zinc-950 border border-border h-9 p-0.5 rounded-full">
-              <TabsTrigger
-                value="curves"
-                className="rounded-full text-[9px] tracking-wider uppercase font-extrabold py-1.5 gap-1 text-muted-foreground data-[state=active]:text-primary-foreground dark:data-[state=active]:text-primary-foreground data-[state=active]:bg-primary dark:data-[state=active]:bg-primary cursor-pointer transition-all duration-200"
-              >
-                <Files className="w-3 h-3" /> Curves
-              </TabsTrigger>
-              <TabsTrigger
-                value="analysis"
-                className="rounded-full text-[9px] tracking-wider uppercase font-extrabold py-1.5 gap-1 text-muted-foreground data-[state=active]:text-primary-foreground dark:data-[state=active]:text-primary-foreground data-[state=active]:bg-primary dark:data-[state=active]:bg-primary cursor-pointer transition-all duration-200"
-              >
-                <BarChart3 className="w-3 h-3" /> Analysis
-              </TabsTrigger>
-              <TabsTrigger
-                value="labels"
-                className="rounded-full text-[9px] tracking-wider uppercase font-extrabold py-1.5 gap-1 text-muted-foreground data-[state=active]:text-primary-foreground dark:data-[state=active]:text-primary-foreground data-[state=active]:bg-primary dark:data-[state=active]:bg-primary cursor-pointer transition-all duration-200"
-              >
-                <Tag className="w-3 h-3" /> Labels
-              </TabsTrigger>
-            </TabsList>
-          </div>
-
-          {/* Scrollable Sidebar Panels */}
-          <div className="flex-1 overflow-y-auto p-4">
-            <TabsContent value="curves" className="space-y-5 outline-none mt-0">
-              <div className="space-y-1">
-                <h2 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                  Import Files
-                </h2>
-                <FileUpload />
-              </div>
-              <div className="space-y-1">
-                <h2 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                  Loaded Datasets
-                </h2>
-                <SeriesList />
-              </div>
-            </TabsContent>
-
-            <TabsContent value="analysis" className="outline-none mt-0">
-              <StatsPanel xMin={viewport.xMin} xMax={viewport.xMax} />
-            </TabsContent>
-
-            <TabsContent value="labels" className="outline-none mt-0">
-              <AnnotationTools />
-            </TabsContent>
-          </div>
-        </Tabs>
-
-        {/* Sidebar Footer Info */}
-        <div className="p-3 border-t border-border bg-muted/40 text-center text-[9px] text-muted-foreground font-medium">
-          xmgrace Web Alternative &bull; Client-Side
-        </div>
-      </aside>
-
-      {/* Main Canvas Panel */}
-      <main className="flex-1 flex flex-col h-full bg-background overflow-hidden relative transition-colors duration-200">
-        {/* Header toolbar */}
-        <header className="h-14 border-b border-border bg-zinc-50 dark:bg-zinc-900/10 px-6 flex items-center justify-between flex-shrink-0 transition-colors duration-200">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Plot Viewport</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-ping" />
-          </div>
-          <div className="flex items-center gap-2">
-            {/* Theme Toggle Button */}
-            <Button
-              variant="outline"
-              size="icon-sm"
-              onClick={toggleTheme}
-              className="bg-card border-border hover:bg-muted text-muted-foreground hover:text-foreground h-8 w-8"
-              title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}
-            >
-              {theme === 'dark' ? (
-                <Sun className="w-3.5 h-3.5 text-amber-400" />
-              ) : (
-                <Moon className="w-3.5 h-3.5 text-indigo-600" />
-              )}
+        <div className="flex items-center gap-4">
+          <a
+            href="https://github.com/nimras10/graceweb"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs font-semibold text-muted-foreground hover:text-foreground transition hidden sm:inline"
+          >
+            GitHub
+          </a>
+          <Button
+            variant="outline"
+            size="icon-sm"
+            onClick={toggleTheme}
+            className="bg-card border-border hover:bg-muted text-muted-foreground hover:text-foreground h-8 w-8 rounded-full"
+            title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          >
+            {theme === 'dark' ? (
+              <Sun className="w-3.5 h-3.5 text-amber-400" />
+            ) : (
+              <Moon className="w-3.5 h-3.5 text-indigo-600" />
+            )}
+          </Button>
+          <a href="/workspace">
+            <Button size="sm" className="bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold px-4 py-1.5 rounded-full flex items-center gap-1.5 transition-transform duration-200 hover:scale-[1.03]">
+              Launch Workspace <ArrowRight className="w-3.5 h-3.5" />
             </Button>
-            <AxisSettingsDialog />
-            <ExportMenu />
-          </div>
-        </header>
+          </a>
+        </div>
+      </header>
 
-        {/* Visual Graph Area */}
-        <div className="flex-1 flex items-center justify-center p-6 relative">
-          {datasets.length === 0 ? (
-            <div className="text-center p-8 max-w-sm border border-border rounded-2xl bg-card shadow-lg select-none">
-              <div className="w-12 h-12 rounded-full bg-muted border border-border flex items-center justify-center mx-auto mb-4">
-                <UploadSvg />
+      {/* 2. Hero Section */}
+      <main className="flex-1 max-w-6xl w-full mx-auto px-6 md:px-12 py-12 md:py-20 space-y-16">
+        <div className="grid md:grid-cols-5 gap-12 items-center">
+          <div className="md:col-span-3 space-y-6 text-left">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary/10 border border-primary/20 rounded-full text-primary text-[10px] uppercase font-bold tracking-wider">
+              <Sparkles className="w-3 h-3" /> Modern xmgrace Alternative
+            </div>
+            <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight leading-tight">
+              Scientific Visualization <br />
+              <span className="bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600 dark:from-violet-400 dark:via-indigo-400 dark:to-pink-400 bg-clip-text text-transparent">
+                Reimagined.
+              </span>
+            </h1>
+            <p className="text-sm md:text-base text-muted-foreground leading-relaxed max-w-xl">
+              GraceWeb is a premium browser-based plotter built for molecular dynamics research. Analyze, filter, and style GROMACS <span className="font-mono bg-muted border border-border px-1 py-0.5 rounded text-primary">.xvg</span> files instantly with zero configuration, zero server overhead, and 100% client-side security.
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <a href="/workspace">
+                <Button size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-2 rounded-full flex items-center gap-2 transition duration-200">
+                  Open Workspace <ArrowRight className="w-4 h-4" />
+                </Button>
+              </a>
+              <a
+                href="https://github.com/nimras10/graceweb"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Button variant="outline" size="lg" className="border-border bg-card text-foreground hover:bg-muted font-bold px-6 py-2 rounded-full">
+                  GitHub Repository
+                </Button>
+              </a>
+            </div>
+            <div className="grid grid-cols-3 gap-4 pt-4 border-t border-border/60 max-w-md">
+              <div>
+                <h4 className="text-lg font-bold text-foreground">100%</h4>
+                <p className="text-[10px] text-muted-foreground font-semibold uppercase">Client Side</p>
               </div>
-              <h3 className="font-semibold text-sm text-foreground">No data loaded</h3>
-              <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-                Upload one or multiple GROMACS <span className="font-mono bg-muted text-primary px-1 py-0.5 rounded border border-border">.xvg</span> files in the sidebar to overlay and analyze.
-              </p>
+              <div>
+                <h4 className="text-lg font-bold text-foreground">Zero</h4>
+                <p className="text-[10px] text-muted-foreground font-semibold uppercase">Setup Needed</p>
+              </div>
+              <div>
+                <h4 className="text-lg font-bold text-foreground">300 DPI</h4>
+                <p className="text-[10px] text-muted-foreground font-semibold uppercase">Pub Ready Exports</p>
+              </div>
             </div>
-          ) : (
-            <div className="w-full h-full bg-background rounded-xl flex items-center justify-center border border-border/40 p-2 shadow-inner">
-              <PlotCanvas onViewportChange={handleViewportChange} />
-            </div>
-          )}
+          </div>
+
+          {/* Interactive Plot Preview Widget */}
+          <div className="md:col-span-2 w-full">
+            <Card className="bg-card border-border shadow-xl overflow-hidden rounded-xl">
+              <CardContent className="p-4 flex flex-col items-center">
+                <div className="w-full h-64 bg-background border border-border/40 rounded-lg flex items-center justify-center p-1">
+                  <Plot
+                    data={previewTraces}
+                    layout={previewLayout}
+                    config={{
+                      responsive: true,
+                      displaylogo: false,
+                      scrollZoom: true,
+                      modeBarButtonsToRemove: ['select2d', 'lasso2d', 'toggleSpikelines'],
+                    }}
+                    className="w-full h-full"
+                    style={{ width: '100%', height: '100%' }}
+                  />
+                </div>
+                <div className="flex items-center gap-1.5 mt-3 text-[10px] text-muted-foreground font-semibold uppercase">
+                  <Zap className="w-3.5 h-3.5 text-primary animate-pulse" />
+                  Try dragging, zooming, or hovering the plot
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* 3. Features Bento Grid */}
+        <div className="space-y-6 pt-8">
+          <div className="text-center space-y-2">
+            <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Built for Rigorous Molecular Analysis</h2>
+            <p className="text-xs md:text-sm text-muted-foreground max-w-md mx-auto">
+              Replace command-line plotting lag with immediate analytical filters and styling controls.
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Feature 1 */}
+            <Card className="bg-card/50 border-border hover:border-border/80 transition-all rounded-xl shadow-sm">
+              <CardContent className="p-5 space-y-3">
+                <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20 text-indigo-400">
+                  <Sliders className="w-4 h-4" />
+                </div>
+                <h3 className="font-bold text-sm text-foreground">Smooth Filters</h3>
+                <p className="text-xs text-muted-foreground leading-normal">
+                  Calculate and overlay Moving Average and Savitzky-Golay filtering in-browser to denoise RMSD and energies.
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Feature 2 */}
+            <Card className="bg-card/50 border-border hover:border-border/80 transition-all rounded-xl shadow-sm">
+              <CardContent className="p-5 space-y-3">
+                <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center border border-blue-500/20 text-blue-400">
+                  <Zap className="w-4 h-4" />
+                </div>
+                <h3 className="font-bold text-sm text-foreground">LTTB Downsampling</h3>
+                <p className="text-xs text-muted-foreground leading-normal">
+                  Visualize large datasets of 200,000+ coordinates instantly downsampled to 3,000 points while keeping all shapes and peaks.
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Feature 3 */}
+            <Card className="bg-card/50 border-border hover:border-border/80 transition-all rounded-xl shadow-sm">
+              <CardContent className="p-5 space-y-3">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 text-emerald-400">
+                  <Calculator className="w-4 h-4" />
+                </div>
+                <h3 className="font-bold text-sm text-foreground">Math Transform</h3>
+                <p className="text-xs text-muted-foreground leading-normal">
+                  Apply permanent arithmetic modifications across columns directly (e.g. converting kJ/mol to kcal/mol).
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Feature 4 */}
+            <Card className="bg-card/50 border-border hover:border-border/80 transition-all rounded-xl shadow-sm">
+              <CardContent className="p-5 space-y-3">
+                <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center border border-purple-500/20 text-purple-400">
+                  <ShieldCheck className="w-4 h-4" />
+                </div>
+                <h3 className="font-bold text-sm text-foreground">Image Export</h3>
+                <p className="text-xs text-muted-foreground leading-normal">
+                  Export to high-resolution publication-quality PNG, vector SVG formats, and export modified columns to CSV.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </main>
-    </div>
-  );
-}
 
-// Inline decorative SVG logo
-function UploadSvg() {
-  return (
-    <svg
-      className="w-5 h-5 text-primary"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      strokeWidth={2}
-    >
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-    </svg>
+      {/* 4. Footer */}
+      <footer className="border-t border-border/85 bg-card py-6 text-center text-xs text-muted-foreground transition-colors duration-200 mt-auto">
+        <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4 font-semibold">
+          <div>
+            GraceWeb &bull; Client-Side Scientific Plotter
+          </div>
+          <div className="flex gap-4">
+            <a href="/workspace" className="hover:text-primary transition">Workspace</a>
+            <a href="https://github.com/nimras10/graceweb" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition">GitHub</a>
+          </div>
+          <div className="text-[10px] text-muted-foreground/60 font-medium">
+            Designed for GROMACS Molecular Dynamics visualization
+          </div>
+        </div>
+      </footer>
+    </div>
   );
 }
