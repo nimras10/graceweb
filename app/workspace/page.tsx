@@ -103,8 +103,13 @@ export default function Workspace() {
         </Tabs>
 
         {/* Sidebar Footer Info */}
-        <div className="p-3 border-t border-border bg-muted/40 text-center text-[9px] text-muted-foreground font-medium">
-          xmgrace Web Alternative &bull; Client-Side
+        <div className="p-3 border-t border-border bg-muted/40 text-center space-y-1">
+          <div className="text-[9px] text-muted-foreground font-medium">
+            xmgrace Web Alternative &bull; Client-Side
+          </div>
+          <div className="text-[8px] text-muted-foreground/60">
+            Built by <a href="https://www.linkedin.com/in/nimrasaeed10/" target="_blank" rel="noopener noreferrer" className="font-semibold text-primary hover:underline">Nimra Saeed</a> (Punjab University)
+          </div>
         </div>
       </aside>
 

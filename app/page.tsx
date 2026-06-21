@@ -289,17 +289,36 @@ export default function LandingPage() {
       </main>
 
       {/* 4. Footer */}
-      <footer className="border-t border-border/85 bg-card py-6 text-center text-xs text-muted-foreground transition-colors duration-200 mt-auto">
-        <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4 font-semibold">
-          <div>
-            GraceWeb &bull; Client-Side Scientific Plotter
+      <footer className="border-t border-border/85 bg-card py-8 text-xs text-muted-foreground transition-colors duration-200 mt-auto">
+        <div className="max-w-6xl mx-auto px-6 space-y-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 font-semibold">
+            <div>
+              GraceWeb &bull; Client-Side Scientific Plotter
+            </div>
+            <div className="flex gap-4">
+              <a href="/workspace" className="hover:text-primary transition">Workspace</a>
+              <a href="https://github.com/nimras10/graceweb" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition">GitHub</a>
+            </div>
+            <div className="text-[10px] text-muted-foreground/60 font-medium">
+              Designed for GROMACS Molecular Dynamics visualization
+            </div>
           </div>
-          <div className="flex gap-4">
-            <a href="/workspace" className="hover:text-primary transition">Workspace</a>
-            <a href="https://github.com/nimras10/graceweb" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition">GitHub</a>
-          </div>
-          <div className="text-[10px] text-muted-foreground/60 font-medium">
-            Designed for GROMACS Molecular Dynamics visualization
+          
+          <div className="border-t border-border/40 pt-4 flex flex-col md:flex-row items-center justify-between gap-4 text-center md:text-left">
+            <p className="text-[11px] text-muted-foreground leading-relaxed max-w-xl">
+              Built by <a href="https://www.linkedin.com/in/nimrasaeed10/" target="_blank" rel="noopener noreferrer" className="font-bold text-primary hover:underline">Nimra Saeed</a>, a student from Punjab University and a Master of Biochemistry specializing in computational biology, actively involved in drug design research targeting Nipah and COVID-19.
+            </p>
+            <a 
+              href="https://www.linkedin.com/in/nimrasaeed10/" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-border bg-background hover:bg-muted text-[10px] font-bold text-foreground transition"
+            >
+              <svg className="w-3.5 h-3.5 text-[#0077b5] fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M22.23 0H1.77C.8 0 0 .77 0 1.72v20.56C0 23.23.8 24 1.77 24h20.46c.98 0 1.77-.77 1.77-1.72V1.72C24 .77 23.2 0 22.23 0zM7.12 20.45H3.56V9h3.56v11.45zM5.34 7.43c-1.14 0-2.06-.92-2.06-2.06 0-1.14.92-2.06 2.06-2.06 1.14 0 2.06.92 2.06 2.06 0 1.14-.92 2.06-2.06 2.06zm15.11 13.02h-3.56v-5.6c0-1.34-.03-3.05-1.86-3.05-1.86 0-2.14 1.45-2.14 2.95v5.7h-3.56V9h3.42v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.45v6.29z"/>
+              </svg>
+              Connect on LinkedIn
+            </a>
           </div>
         </div>
       </footer>
